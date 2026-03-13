@@ -1,5 +1,3 @@
-using System.Text;
-
 namespace Concept2.Protocol.Csafe;
 
 /// <summary>
@@ -215,15 +213,10 @@ public static class CsafeFrameParser
                 // Negative value = ASCII string field; absolute value is length
                 var strLen = Math.Abs(fieldSize);
                 var actualLen = Math.Min(strLen, end - pos);
-                var sb = new StringBuilder(actualLen);
                 for (var i = 0; i < actualLen; i++)
                 {
-                    sb.Append((char)bytes[pos++]);
+                    values.Add(bytes[pos++]);
                 }
-
-                // Encode the string as a hash code for the int array representation.
-                // Callers needing the raw string can re-decode from the frame.
-                values.Add(sb.ToString().GetHashCode(StringComparison.Ordinal));
             }
             else if (fieldSize == 0)
             {
