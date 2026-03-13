@@ -274,24 +274,49 @@ public sealed class PerformanceMonitor : IPerformanceMonitor
 
     // ──── Streaming ────
 
+    private static readonly TimeSpan DefaultUsbPollingInterval = TimeSpan.FromMilliseconds(200);
+
     /// <inheritdoc />
-    public async IAsyncEnumerable<RowingData> StreamRowingDataAsync(
-        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    public IAsyncEnumerable<RowingData> StreamRowingDataAsync(
+        TimeSpan? pollingInterval = null,
+        CancellationToken cancellationToken = default)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        if (_bleTransport is null)
-        {
-            throw new NotSupportedException(
-                "Streaming is only supported over Bluetooth Low Energy. " +
-                "Use a transport that implements IBluetoothTransport.");
-        }
+        return _bleTransport is not null
+            ? StreamViaBleAsync(pollingInterval, cancellationToken)
+            : StreamViaPollingAsync(pollingInterval ?? DefaultUsbPollingInterval, cancellationToken);
+    }
 
+    /// <summary>
+    /// Streams rowing data via USB CSAFE polling at the specified interval.
+    /// </summary>
+    private async IAsyncEnumerable<RowingData> StreamViaPollingAsync(
+        TimeSpan interval,
+        [EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        using var timer = new PeriodicTimer(interval);
+
+        while (await timer.WaitForNextTickAsync(cancellationToken).ConfigureAwait(false))
+        {
+            var data = await GetRowingDataAsync(cancellationToken).ConfigureAwait(false);
+            yield return data;
+        }
+    }
+
+    /// <summary>
+    /// Streams rowing data via BLE GATT notifications, optionally throttled.
+    /// </summary>
+    private async IAsyncEnumerable<RowingData> StreamViaBleAsync(
+        TimeSpan? throttle,
+        [EnumeratorCancellation] CancellationToken cancellationToken)
+    {
         // Track the latest data from each characteristic so we can merge them.
         GeneralStatusData? latestGeneral = null;
         AdditionalStatusData? latestAdditional = null;
+        DateTimeOffset lastYield = DateTimeOffset.MinValue;
 
-        var generalStream = _bleTransport.SubscribeToCharacteristicAsync(
+        var generalStream = _bleTransport!.SubscribeToCharacteristicAsync(
             BleConstants.GeneralStatus, cancellationToken);
         var additionalStream = _bleTransport.SubscribeToCharacteristicAsync(
             BleConstants.AdditionalStatus, cancellationToken);
@@ -314,6 +339,18 @@ public sealed class PerformanceMonitor : IPerformanceMonitor
             if (latestGeneral is null || latestAdditional is null)
             {
                 continue;
+            }
+
+            // Apply throttle if configured.
+            if (throttle.HasValue)
+            {
+                var now = DateTimeOffset.UtcNow;
+                if (now - lastYield < throttle.Value)
+                {
+                    continue;
+                }
+
+                lastYield = now;
             }
 
             var general = latestGeneral.Value;

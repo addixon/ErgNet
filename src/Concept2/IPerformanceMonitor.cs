@@ -63,20 +63,26 @@ public interface IPerformanceMonitor : IAsyncDisposable
     /// <param name="cancellationToken">Cancellation token.</param>
     Task ResetAsync(CancellationToken cancellationToken = default);
 
-    // ──── Streaming (BLE) ────
+    // ──── Streaming ────
 
     /// <summary>
-    /// Subscribes to real-time rowing data updates via BLE notifications.
-    /// Data is emitted at the highest rate supported by the PM (typically up to ~10 Hz).
+    /// Subscribes to a continuous stream of rowing data updates.
     /// </summary>
+    /// <param name="pollingInterval">
+    /// The interval between data samples. When connected via Bluetooth, the PM pushes data
+    /// via BLE notifications and this interval acts as a minimum throttle between yielded
+    /// snapshots. When connected via USB, the library polls the PM via CSAFE commands at
+    /// this interval. Pass <see langword="null"/> to use the default interval (200 ms for
+    /// USB, or unthrottled for Bluetooth).
+    /// </param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>An async enumerable stream of <see cref="RowingData"/> snapshots.</returns>
     /// <remarks>
-    /// Streaming is only available when the underlying transport implements
-    /// <see cref="Transport.IBluetoothTransport"/>. Calling this method with a
-    /// USB-only transport will throw <see cref="NotSupportedException"/>.
+    /// This method works identically regardless of whether the underlying transport is USB
+    /// or Bluetooth. The same calling code can be used with either transport type.
     /// </remarks>
     IAsyncEnumerable<RowingData> StreamRowingDataAsync(
+        TimeSpan? pollingInterval = null,
         CancellationToken cancellationToken = default);
 
     // ──── Raw CSAFE ────
