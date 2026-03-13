@@ -111,7 +111,7 @@ public static class CsafeFrameParser
                 ParseInnerCommands(bytes, offset, innerEnd, CsafeCommands.Long.SetUserCfg1, result);
                 offset = innerEnd;
             }
-            else if (IsLongCommand(cmdByte))
+            else if (CsafeConstants.IsLongCommand(cmdByte))
             {
                 // Standard long command response
                 if (offset >= bytes.Count)
@@ -157,7 +157,7 @@ public static class CsafeFrameParser
         {
             var cmdByte = bytes[offset++];
 
-            if (IsLongCommand(cmdByte))
+            if (CsafeConstants.IsLongCommand(cmdByte))
             {
                 if (offset >= end)
                     break;
@@ -244,8 +244,6 @@ public static class CsafeFrameParser
 
         return values.ToArray();
     }
-
-    private static bool IsLongCommand(byte commandId) => commandId < 0x80;
 
     private static List<byte> Unstuff(ReadOnlySpan<byte> data)
     {

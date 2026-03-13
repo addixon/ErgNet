@@ -17,6 +17,11 @@ namespace Concept2;
 /// </remarks>
 public sealed class PerformanceMonitor : IPerformanceMonitor
 {
+    /// <summary>
+    /// Default polling interval for USB CSAFE communications (200 milliseconds).
+    /// </summary>
+    public static readonly TimeSpan DefaultUsbPollingInterval = TimeSpan.FromMilliseconds(200);
+
     private readonly ITransport _transport;
     private readonly IBluetoothTransport? _bleTransport;
     private readonly SemaphoreSlim _transportLock = new(1, 1);
@@ -106,6 +111,9 @@ public sealed class PerformanceMonitor : IPerformanceMonitor
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
+        // Capture timestamp at the start of data retrieval for accuracy
+        var timestamp = DateTimeOffset.UtcNow;
+
         var commands = new[]
         {
             new CsafeCommand(CsafeCommands.Short.GetTWork),
@@ -158,7 +166,7 @@ public sealed class PerformanceMonitor : IPerformanceMonitor
             HeartRate = heartRate is { Length: >= 1 } ? heartRate[0] : 0,
             WorkoutState = workoutState is { Length: >= 1 } ? (WorkoutState)workoutState[0] : WorkoutState.WaitToBegin,
             StrokeState = strokeState is { Length: >= 1 } ? (StrokeState)strokeState[0] : StrokeState.WaitingForWheelToReachMinSpeed,
-            Timestamp = DateTimeOffset.UtcNow,
+            Timestamp = timestamp,
         };
     }
 
@@ -276,8 +284,6 @@ public sealed class PerformanceMonitor : IPerformanceMonitor
     }
 
     // ──── Streaming ────
-
-    private static readonly TimeSpan DefaultUsbPollingInterval = TimeSpan.FromMilliseconds(200);
 
     /// <inheritdoc />
     public IAsyncEnumerable<RowingData> StreamRowingDataAsync(
@@ -433,13 +439,7 @@ public sealed class PerformanceMonitor : IPerformanceMonitor
     {
         if (response.Data.TryGetValue(commandName, out var fields) && fields.Length > 0)
         {
-            var chars = new char[fields.Length];
-            for (int i = 0; i < fields.Length; i++)
-            {
-                chars[i] = (char)fields[i];
-            }
-
-            return new string(chars);
+            return new string(fields.Select(f => (char)f).ToArray());
         }
 
         return string.Empty;

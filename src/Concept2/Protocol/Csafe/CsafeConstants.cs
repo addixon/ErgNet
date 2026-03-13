@@ -32,4 +32,19 @@ public static class CsafeConstants
 
     /// <summary>Bit shift for the previous-frame status field.</summary>
     public const int StatusPreviousFrameShift = 4;
+
+    /// <summary>Mask for extracting the lower 2 bits during byte stuffing.</summary>
+    public const byte StuffingMask = 0x03;
+
+    /// <summary>Threshold value that separates long and short commands (0x80 = 128).</summary>
+    /// <remarks>Commands below this threshold are long commands, at or above are short commands.</remarks>
+    public const byte LongCommandThreshold = 0x80;
+
+    /// <summary>
+    /// Determines whether a command byte represents a long command.
+    /// Long commands have their length byte before the actual command data.
+    /// </summary>
+    /// <param name="commandByte">The command byte to check.</param>
+    /// <returns><c>true</c> if the command is a long command (less than 0x80); otherwise, <c>false</c>.</returns>
+    public static bool IsLongCommand(byte commandByte) => commandByte < LongCommandThreshold;
 }

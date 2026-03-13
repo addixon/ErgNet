@@ -145,19 +145,17 @@ public static class CsafeFrameBuilder
     {
         buffer.Add(cmd.CommandId);
 
-        if (IsLongCommand(cmd.CommandId) && cmd.Data is { Length: > 0 })
+        if (CsafeConstants.IsLongCommand(cmd.CommandId) && cmd.Data is { Length: > 0 })
         {
             buffer.Add((byte)cmd.Data.Length);
             buffer.AddRange(cmd.Data);
         }
-        else if (IsLongCommand(cmd.CommandId))
+        else if (CsafeConstants.IsLongCommand(cmd.CommandId))
         {
             buffer.Add(0x00);
         }
         // Short commands: just the command byte, no length/data
     }
-
-    private static bool IsLongCommand(byte commandId) => commandId < 0x80;
 
     private static byte ComputeChecksum(ReadOnlySpan<byte> data)
     {
@@ -175,7 +173,7 @@ public static class CsafeFrameBuilder
                   and <= CsafeConstants.Byte_Stuffing_Flag)
         {
             frame.Add(CsafeConstants.Byte_Stuffing_Flag);
-            frame.Add((byte)(value & 0x03));
+            frame.Add((byte)(value & CsafeConstants.StuffingMask));
         }
         else
         {
