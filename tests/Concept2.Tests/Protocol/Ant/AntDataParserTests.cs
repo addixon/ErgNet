@@ -143,4 +143,46 @@ public class AntDataParserTests
 
         Assert.Equal(expected, result.State);
     }
+
+    // ── NordicSkierData ────
+
+    [Fact]
+    public void ParseNordicSkierData_ValidPage_ParsesCorrectly()
+    {
+        // Page 0x18: stride count=30, cadence=50 spm, power=150W (0x0096), state=InUse
+        var data = new byte[]
+        {
+            0x18, // page number
+            0xFF, // reserved
+            0xFF, // reserved
+            30,   // stride count
+            50,   // cadence (spm)
+            0x96, 0x00, // instantaneous power (150W)
+            0x30, // bits 4-6: InUse (3)
+        };
+
+        var result = AntDataParser.ParseNordicSkierData(data);
+
+        Assert.Equal(30, result.StrideCountIncrement);
+        Assert.Equal(50, result.Cadence);
+        Assert.Equal(150, result.InstantaneousPower);
+        Assert.Equal(AntEquipmentState.InUse, result.State);
+    }
+
+    [Fact]
+    public void ParseNordicSkierData_InvalidCadence_ReportsRawValue()
+    {
+        var data = new byte[] { 0x18, 0xFF, 0xFF, 10, 0xFF, 0x00, 0x00, 0x30 };
+
+        var result = AntDataParser.ParseNordicSkierData(data);
+
+        Assert.Equal(0xFF, result.Cadence);
+    }
+
+    [Fact]
+    public void ParseNordicSkierData_TooShort_Throws()
+    {
+        var data = new byte[] { 0x18, 0xFF, 0xFF };
+        Assert.Throws<ArgumentException>(() => AntDataParser.ParseNordicSkierData(data));
+    }
 }

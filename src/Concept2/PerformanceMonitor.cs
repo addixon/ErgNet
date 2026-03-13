@@ -442,7 +442,8 @@ public sealed class PerformanceMonitor : IPerformanceMonitor
                     }
                     else
                     {
-                        int delta = (rower.StrokeCountIncrement - prevStrokeIncrement + 256) % 256;
+                        // Calculate delta accounting for 8-bit rollover
+                        int delta = (rower.StrokeCountIncrement - prevStrokeIncrement + AntConstants.RolloverCounterMax) % AntConstants.RolloverCounterMax;
                         totalStrokeCount += delta;
                         prevStrokeIncrement = rower.StrokeCountIncrement;
                     }

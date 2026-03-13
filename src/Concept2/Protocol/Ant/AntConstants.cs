@@ -13,10 +13,13 @@ public static class AntConstants
     /// <summary>ANT+ device type for Fitness Equipment (FE-C).</summary>
     public const byte FitnessEquipmentDeviceType = 17;
 
-    /// <summary>Channel period for Fitness Equipment profile (8192 counts ≈ 4 Hz).</summary>
+    /// <summary>
+    /// Channel period for Fitness Equipment profile (8192 counts ≈ 4 Hz).
+    /// ANT+ channel period = 32768 / message_rate_hz. For 4 Hz: 32768 / 4 = 8192.
+    /// </summary>
     public const ushort ChannelPeriod = 8192;
 
-    /// <summary>RF frequency for ANT+ (2457 MHz, standard ANT+ frequency).</summary>
+    /// <summary>RF frequency for ANT+ (2457 MHz, standard ANT+ public network frequency).</summary>
     public const byte RfFrequency = 57;
 
     /// <summary>Default transmission type for ANT+ Fitness Equipment.</summary>
@@ -57,4 +60,12 @@ public static class AntConstants
 
     /// <summary>Index of the data page number byte within a data page.</summary>
     public const int DataPageNumberIndex = 0;
+
+    // ── Rollover Constants ───────────────────────────────────────────────
+
+    /// <summary>
+    /// Maximum value for 8-bit rollover counters (stroke count, distance, calorie increment).
+    /// ANT+ uses unsigned 8-bit counters that roll over at 256.
+    /// </summary>
+    public const int RolloverCounterMax = 256;
 }

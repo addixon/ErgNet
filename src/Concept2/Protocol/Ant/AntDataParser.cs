@@ -48,6 +48,20 @@ public readonly record struct MetabolicData(
     byte CaloricIncrement);
 
 /// <summary>
+/// Parsed Nordic Skier Data from ANT+ data page 0x18.
+/// This page is specific to the SkiErg and contains stride count, cadence, and instantaneous power.
+/// </summary>
+/// <param name="StrideCountIncrement">Stride count increment (rolls over at 256).</param>
+/// <param name="Cadence">Cadence in strides per minute. 0xFF indicates invalid.</param>
+/// <param name="InstantaneousPower">Instantaneous power in watts. 0xFFFF indicates invalid.</param>
+/// <param name="State">The fitness equipment state.</param>
+public readonly record struct NordicSkierData(
+    byte StrideCountIncrement,
+    byte Cadence,
+    int InstantaneousPower,
+    AntEquipmentState State);
+
+/// <summary>
 /// Represents the state of the fitness equipment as reported in ANT+ data pages.
 /// </summary>
 public enum AntEquipmentState : byte
@@ -145,6 +159,28 @@ public static class AntDataParser
     }
 
     /// <summary>
+    /// Parses a Nordic Skier Data page (0x18).
+    /// </summary>
+    /// <param name="data">The raw 8-byte ANT+ data page payload.</param>
+    /// <returns>A <see cref="NordicSkierData"/> containing the parsed values.</returns>
+    /// <exception cref="ArgumentException">Thrown when the data is shorter than 8 bytes.</exception>
+    public static NordicSkierData ParseNordicSkierData(ReadOnlySpan<byte> data)
+    {
+        ValidatePageLength(data, AntConstants.DataPageSize);
+
+        byte strideCountIncrement = data[3];
+        byte cadence = data[4];
+        int instantaneousPower = (int)((uint)data[5] | ((uint)data[6] << 8));
+        var state = ParseState(data[7]);
+
+        return new NordicSkierData(
+            StrideCountIncrement: strideCountIncrement,
+            Cadence: cadence,
+            InstantaneousPower: instantaneousPower,
+            State: state);
+    }
+
+    /// <summary>
     /// Extracts the data page number from an ANT+ data page payload.
     /// </summary>
     /// <param name="data">The raw ANT+ data page payload.</param>
@@ -160,8 +196,15 @@ public static class AntDataParser
         return data[AntConstants.DataPageNumberIndex];
     }
 
+    /// <summary>
+    /// Extracts and validates the equipment state from the state byte.
+    /// The state is encoded in bits 4-6 of the byte (mask 0x70).
+    /// </summary>
+    /// <param name="stateByte">The raw state byte from the ANT+ data page.</param>
+    /// <returns>The parsed equipment state, or Unknown if the value is undefined.</returns>
     private static AntEquipmentState ParseState(byte stateByte)
     {
+        // Equipment state is in bits 4-6 (0x70), right-shifted by 4 positions
         var stateValue = (byte)((stateByte >> 4) & 0x07);
         return Enum.IsDefined(typeof(AntEquipmentState), stateValue)
             ? (AntEquipmentState)stateValue
