@@ -163,6 +163,15 @@ public static class CsafeCommands
 
         /// <summary>Get the display units setting.</summary>
         public const byte PM_GetDisplayUnits = 0x8B;
+
+        /// <summary>Get the current workout number.</summary>
+        public const byte PM_GetWorkoutNumber = 0x86;
+
+        /// <summary>Get the ergometer machine type (RowErg, SkiErg, BikeErg, etc.).</summary>
+        public const byte PM_GetErgMachineType = 0x87;
+
+        /// <summary>Get the average pace.</summary>
+        public const byte PM_GetAveragePace = 0xA6;
     }
 
     /// <summary>

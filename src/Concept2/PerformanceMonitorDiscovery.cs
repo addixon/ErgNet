@@ -1,9 +1,10 @@
+using Concept2.Protocol.Ant;
 using Concept2.Protocol.Bluetooth;
 
 namespace Concept2;
 
 /// <summary>
-/// Helper for discovering Concept2 Performance Monitors connected via USB or Bluetooth.
+/// Helper for discovering Concept2 Performance Monitors connected via USB, Bluetooth, or ANT+.
 /// </summary>
 public static class PerformanceMonitorDiscovery
 {
@@ -15,6 +16,9 @@ public static class PerformanceMonitorDiscovery
 
     /// <summary>The Concept2 BLE base UUID used for device identification in scan results.</summary>
     public static readonly Guid BleBaseUuid = new("CE060000-43E5-11E4-916C-0800200C9A66");
+
+    /// <summary>The ANT+ Fitness Equipment device type used by the PM5.</summary>
+    public const byte AntFitnessEquipmentDeviceType = AntConstants.FitnessEquipmentDeviceType;
 
     /// <summary>
     /// Checks if a BLE device is a Concept2 Performance Monitor by checking
@@ -30,5 +34,16 @@ public static class PerformanceMonitorDiscovery
             uuid == BleConstants.RowingPrimaryService ||
             uuid == BleConstants.RowingControlService ||
             uuid == BleConstants.DeviceInfoService);
+    }
+
+    /// <summary>
+    /// Checks if an ANT+ device is a Concept2 Performance Monitor by comparing
+    /// its device type against the ANT+ Fitness Equipment type.
+    /// </summary>
+    /// <param name="deviceType">The ANT+ device type reported during channel assignment.</param>
+    /// <returns><see langword="true"/> if the device type matches Fitness Equipment (PM5); otherwise <see langword="false"/>.</returns>
+    public static bool IsConcept2AntDevice(byte deviceType)
+    {
+        return deviceType == AntConstants.FitnessEquipmentDeviceType;
     }
 }

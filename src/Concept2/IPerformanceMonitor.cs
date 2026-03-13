@@ -7,6 +7,11 @@ namespace Concept2;
 /// Interface for communicating with a Concept2 Performance Monitor (PM3/PM4/PM5).
 /// Provides methods for workout programming, data retrieval, and real-time data streaming.
 /// </summary>
+/// <remarks>
+/// PM3 and PM4 support USB only. PM5 supports USB, Bluetooth, and ANT+.
+/// ANT+ is a receive-only data channel for real-time workout metrics; CSAFE
+/// command/response operations require USB or Bluetooth.
+/// </remarks>
 public interface IPerformanceMonitor : IAsyncDisposable
 {
     /// <summary>Whether the monitor is currently connected.</summary>
@@ -71,15 +76,16 @@ public interface IPerformanceMonitor : IAsyncDisposable
     /// <param name="pollingInterval">
     /// The interval between data samples. When connected via Bluetooth, the PM pushes data
     /// via BLE notifications and this interval acts as a minimum throttle between yielded
-    /// snapshots. When connected via USB, the library polls the PM via CSAFE commands at
-    /// this interval. Pass <see langword="null"/> to use the default interval (200 ms for
-    /// USB, or unthrottled for Bluetooth).
+    /// snapshots. When connected via ANT+, the PM broadcasts data pages and this interval
+    /// acts as a minimum throttle. When connected via USB, the library polls the PM via
+    /// CSAFE commands at this interval. Pass <see langword="null"/> to use the default
+    /// interval (200 ms for USB, or unthrottled for Bluetooth/ANT+).
     /// </param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>An async enumerable stream of <see cref="RowingData"/> snapshots.</returns>
     /// <remarks>
-    /// This method works identically regardless of whether the underlying transport is USB
-    /// or Bluetooth. The same calling code can be used with either transport type.
+    /// This method works identically regardless of whether the underlying transport is USB,
+    /// Bluetooth, or ANT+. The same calling code can be used with any transport type.
     /// </remarks>
     IAsyncEnumerable<RowingData> StreamRowingDataAsync(
         TimeSpan? pollingInterval = null,

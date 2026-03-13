@@ -1,6 +1,7 @@
 using System.Runtime.CompilerServices;
 using System.Threading.Channels;
 using Concept2.Models;
+using Concept2.Protocol.Ant;
 using Concept2.Protocol.Csafe;
 using Concept2.Transport;
 
@@ -149,6 +150,51 @@ public class PerformanceMonitorTests
         Assert.NotNull(bleResponse);
     }
 
+    [Fact]
+    public async Task StreamRowingDataAsync_WithAntTransport_StreamsViaDataPages()
+    {
+        // Arrange: an ANT+ transport that pushes data via FE-C data pages.
+        var transport = new FakeAntTransport();
+        await using var pm = new PerformanceMonitor(transport);
+        await pm.ConnectAsync();
+
+        // Act
+        var results = new List<RowingData>();
+        var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+
+        await foreach (var data in pm.StreamRowingDataAsync(
+            cancellationToken: cts.Token))
+        {
+            results.Add(data);
+            if (results.Count >= 2)
+            {
+                break;
+            }
+        }
+
+        // Assert: should get data from ANT+ data pages, not CSAFE polling.
+        Assert.Equal(2, results.Count);
+        Assert.Equal(0, transport.CsafeSendCount);
+    }
+
+    [Fact]
+    public async Task AntTransport_SendAsync_ThrowsNotSupported()
+    {
+        var transport = new AntTransport(new FakeAntDevice());
+        await transport.ConnectAsync();
+        await Assert.ThrowsAsync<NotSupportedException>(
+            () => transport.SendAsync(new byte[] { 0xF1 }));
+    }
+
+    [Fact]
+    public async Task AntTransport_ReceiveAsync_ThrowsNotSupported()
+    {
+        var transport = new AntTransport(new FakeAntDevice());
+        await transport.ConnectAsync();
+        await Assert.ThrowsAsync<NotSupportedException>(
+            () => transport.ReceiveAsync());
+    }
+
     // ──── Fakes ────
 
     /// <summary>
@@ -264,5 +310,102 @@ public class PerformanceMonitorTests
             // AdditionalStatus characteristic: 18 bytes minimum
             return new byte[20]; // All zeros — represents zero elapsed time, zero distance, etc.
         }
+    }
+
+    /// <summary>
+    /// Fake ANT+ transport that simulates ANT+ FE-C data page broadcasts.
+    /// </summary>
+    private sealed class FakeAntTransport : IAntTransport
+    {
+        public bool IsConnected { get; private set; }
+        public int CsafeSendCount { get; private set; }
+
+        public Task ConnectAsync(CancellationToken cancellationToken = default)
+        {
+            IsConnected = true;
+            return Task.CompletedTask;
+        }
+
+        public Task DisconnectAsync(CancellationToken cancellationToken = default)
+        {
+            IsConnected = false;
+            return Task.CompletedTask;
+        }
+
+        public Task SendAsync(ReadOnlyMemory<byte> data, CancellationToken cancellationToken = default)
+        {
+            CsafeSendCount++;
+            throw new NotSupportedException("CSAFE not supported over ANT+.");
+        }
+
+        public Task<byte[]> ReceiveAsync(CancellationToken cancellationToken = default)
+        {
+            throw new NotSupportedException("CSAFE not supported over ANT+.");
+        }
+
+        public async IAsyncEnumerable<byte[]> SubscribeToDataPagesAsync(
+            [EnumeratorCancellation] CancellationToken cancellationToken = default)
+        {
+            // Emit alternating General FE and Rower data pages.
+            for (int i = 0; i < 10; i++)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                await Task.Delay(10, cancellationToken);
+
+                if (i % 2 == 0)
+                {
+                    // General FE Data page (0x10)
+                    yield return new byte[]
+                    {
+                        AntConstants.GeneralFEDataPage, 0x16, 0x00, 0x00,
+                        0x00, 0x00, 0x00, 0x30, // InUse state
+                    };
+                }
+                else
+                {
+                    // Rower Data page (0x16)
+                    yield return new byte[]
+                    {
+                        AntConstants.RowerDataPage, 0xFF, 0xFF, 0x00,
+                        28, 0xC8, 0x00, 0x30, // 28 spm, 200W, InUse
+                    };
+                }
+            }
+        }
+
+        public ValueTask DisposeAsync()
+        {
+            IsConnected = false;
+            return ValueTask.CompletedTask;
+        }
+    }
+
+    /// <summary>
+    /// Fake ANT+ device for testing AntTransport directly.
+    /// </summary>
+    private sealed class FakeAntDevice : IAntDevice
+    {
+        public bool IsConnected { get; private set; }
+
+        public Task ConnectAsync(CancellationToken cancellationToken = default)
+        {
+            IsConnected = true;
+            return Task.CompletedTask;
+        }
+
+        public Task DisconnectAsync(CancellationToken cancellationToken = default)
+        {
+            IsConnected = false;
+            return Task.CompletedTask;
+        }
+
+        public async IAsyncEnumerable<byte[]> SubscribeAsync(
+            [EnumeratorCancellation] CancellationToken cancellationToken = default)
+        {
+            await Task.Delay(10, cancellationToken);
+            yield return new byte[] { 0x10, 0x16, 0x00, 0x00, 0x00, 0x00, 0x00, 0x30 };
+        }
+
+        public void Dispose() { }
     }
 }

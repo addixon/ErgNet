@@ -49,6 +49,9 @@ public class CsafeCommandRegistryTests
     [InlineData(CsafeCommands.PmShort.PM_GetWorkoutType, "PM_GetWorkoutType")]
     [InlineData(CsafeCommands.PmShort.PM_GetDragFactor, "PM_GetDragFactor")]
     [InlineData(CsafeCommands.PmShort.PM_GetRestTime, "PM_GetRestTime")]
+    [InlineData(CsafeCommands.PmShort.PM_GetErgMachineType, "PM_GetErgMachineType")]
+    [InlineData(CsafeCommands.PmShort.PM_GetWorkoutNumber, "PM_GetWorkoutNumber")]
+    [InlineData(CsafeCommands.PmShort.PM_GetAveragePace, "PM_GetAveragePace")]
     public void TryGet_PmShortCommand_FindsDefinition(byte commandId, string expectedName)
     {
         var found = CsafeCommandRegistry.TryGet(commandId, CsafeCommands.Long.SetUserCfg1, out var def);
@@ -81,8 +84,8 @@ public class CsafeCommandRegistryTests
     [Fact]
     public void Definitions_ContainsAllExpectedCommands()
     {
-        // 8 status + 15 data + 12 long + 11 PM short + 5 PM long = 51
-        Assert.Equal(51, CsafeCommandRegistry.Definitions.Count);
+        // 8 status + 15 data + 12 long + 14 PM short + 5 PM long = 54
+        Assert.Equal(54, CsafeCommandRegistry.Definitions.Count);
     }
 
     [Fact]

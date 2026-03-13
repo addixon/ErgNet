@@ -218,3 +218,39 @@ public enum MachineState : byte
     /// <summary>The machine is offline.</summary>
     OffLine = 9,
 }
+
+/// <summary>
+/// Identifies the type of Concept2 Performance Monitor hardware.
+/// </summary>
+public enum MonitorType : byte
+{
+    /// <summary>Performance Monitor 3. Supports USB only.</summary>
+    PM3 = 3,
+
+    /// <summary>Performance Monitor 4. Supports USB only.</summary>
+    PM4 = 4,
+
+    /// <summary>Performance Monitor 5. Supports USB, Bluetooth, and ANT+.</summary>
+    PM5 = 5,
+}
+
+/// <summary>
+/// Identifies the type of Concept2 ergometer machine.
+/// </summary>
+public enum ErgMachineType : byte
+{
+    /// <summary>Static indoor rower (RowErg / Model D / Model E).</summary>
+    StaticRower = 0,
+
+    /// <summary>Indoor cross-country ski trainer (SkiErg).</summary>
+    SkiErg = 1,
+
+    /// <summary>Indoor stationary bike (BikeErg).</summary>
+    BikeErg = 2,
+
+    /// <summary>Dynamic indoor rower with slides.</summary>
+    Dynamic = 3,
+
+    /// <summary>Unknown or unrecognised ergometer type.</summary>
+    Unknown = 255,
+}
