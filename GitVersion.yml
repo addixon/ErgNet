@@ -1,6 +1,7 @@
-mode: ContinuousDeployment
+workflow: GitHubFlow/v1
 next-version: 0.1.0
 tag-prefix: v
+semantic-version-format: Loose
 major-version-bump-message: "^(build|chore|ci|docs|feat|fix|perf|refactor|revert|style|test)(\\(.*\\))?!:|BREAKING CHANGE"
 minor-version-bump-message: "^feat(\\(.*\\))?:"
 patch-version-bump-message: "^(fix|perf)(\\(.*\\))?:"
@@ -10,4 +11,5 @@ branches:
     regex: ^main$
     is-main-branch: true
     increment: Patch
+    mode: ContinuousDeployment
     label: ''
