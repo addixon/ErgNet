@@ -1,6 +1,7 @@
 using System.Runtime.CompilerServices;
 using System.Threading.Channels;
 using Concept2.Models;
+using Concept2.Protocol.Ant;
 using Concept2.Protocol.Bluetooth;
 using Concept2.Protocol.Csafe;
 using Concept2.Transport;
@@ -14,6 +15,8 @@ namespace Concept2;
 /// <remarks>
 /// Construct with any <see cref="ITransport"/>. If the transport also implements
 /// <see cref="IBluetoothTransport"/>, BLE streaming features become available.
+/// If the transport implements <see cref="IAntTransport"/>, ANT+ streaming is available
+/// (PM5 only). ANT+ is a receive-only data channel; CSAFE commands require USB or Bluetooth.
 /// </remarks>
 public sealed class PerformanceMonitor : IPerformanceMonitor
 {
@@ -24,6 +27,7 @@ public sealed class PerformanceMonitor : IPerformanceMonitor
 
     private readonly ITransport _transport;
     private readonly IBluetoothTransport? _bleTransport;
+    private readonly IAntTransport? _antTransport;
     private readonly SemaphoreSlim _transportLock = new(1, 1);
     private bool _disposed;
 
@@ -33,13 +37,15 @@ public sealed class PerformanceMonitor : IPerformanceMonitor
     /// <param name="transport">
     /// The transport layer used to communicate with the performance monitor.
     /// If the transport implements <see cref="IBluetoothTransport"/>, BLE streaming
-    /// features are enabled automatically.
+    /// features are enabled automatically. If it implements <see cref="IAntTransport"/>,
+    /// ANT+ streaming is enabled (PM5 only).
     /// </param>
     public PerformanceMonitor(ITransport transport)
     {
         ArgumentNullException.ThrowIfNull(transport);
         _transport = transport;
         _bleTransport = transport as IBluetoothTransport;
+        _antTransport = transport as IAntTransport;
     }
 
     /// <inheritdoc />
@@ -292,9 +298,17 @@ public sealed class PerformanceMonitor : IPerformanceMonitor
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        return _bleTransport is not null
-            ? StreamViaBleAsync(pollingInterval, cancellationToken)
-            : StreamViaPollingAsync(pollingInterval ?? DefaultUsbPollingInterval, cancellationToken);
+        if (_bleTransport is not null)
+        {
+            return StreamViaBleAsync(pollingInterval, cancellationToken);
+        }
+
+        if (_antTransport is not null)
+        {
+            return StreamViaAntAsync(pollingInterval, cancellationToken);
+        }
+
+        return StreamViaPollingAsync(pollingInterval ?? DefaultUsbPollingInterval, cancellationToken);
     }
 
     /// <summary>
@@ -381,6 +395,90 @@ public sealed class PerformanceMonitor : IPerformanceMonitor
                 WorkoutState = general.WorkoutState,
                 RowingState = general.RowingState,
                 StrokeState = general.StrokeState,
+                Timestamp = DateTimeOffset.UtcNow,
+            };
+        }
+    }
+
+    /// <summary>
+    /// Streams rowing data via ANT+ Fitness Equipment data page broadcasts, optionally throttled.
+    /// </summary>
+    private async IAsyncEnumerable<RowingData> StreamViaAntAsync(
+        TimeSpan? throttle,
+        [EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        var antTransport = _antTransport ?? throw new InvalidOperationException("ANT+ transport is not available.");
+
+        GeneralFEData? latestGeneral = null;
+        RowerData? latestRower = null;
+        DateTimeOffset lastYield = DateTimeOffset.MinValue;
+
+        // Accumulate totals from rollover counters
+        int totalStrokeCount = 0;
+        byte prevStrokeIncrement = 0;
+        bool isFirst = true;
+
+        await foreach (var page in antTransport.SubscribeToDataPagesAsync(cancellationToken)
+            .WithCancellation(cancellationToken).ConfigureAwait(false))
+        {
+            if (page.Length < AntConstants.DataPageSize)
+            {
+                continue;
+            }
+
+            var pageNumber = AntDataParser.GetDataPageNumber(page);
+
+            switch (pageNumber)
+            {
+                case AntConstants.GeneralFEDataPage:
+                    latestGeneral = AntDataParser.ParseGeneralFEData(page);
+                    break;
+                case AntConstants.RowerDataPage:
+                    var rower = AntDataParser.ParseRowerData(page);
+                    if (isFirst)
+                    {
+                        prevStrokeIncrement = rower.StrokeCountIncrement;
+                        isFirst = false;
+                    }
+                    else
+                    {
+                        int delta = (rower.StrokeCountIncrement - prevStrokeIncrement + 256) % 256;
+                        totalStrokeCount += delta;
+                        prevStrokeIncrement = rower.StrokeCountIncrement;
+                    }
+                    latestRower = rower;
+                    break;
+                default:
+                    continue;
+            }
+
+            // Only yield once we have data from both page types.
+            if (latestGeneral is null || latestRower is null)
+            {
+                continue;
+            }
+
+            // Apply throttle if configured.
+            if (throttle.HasValue)
+            {
+                var now = DateTimeOffset.UtcNow;
+                if (now - lastYield < throttle.Value)
+                {
+                    continue;
+                }
+
+                lastYield = now;
+            }
+
+            var general = latestGeneral.Value;
+            var rowerData = latestRower.Value;
+
+            yield return new RowingData
+            {
+                SpeedMetersPerSecond = general.InstantaneousSpeed,
+                HeartRate = general.HeartRate == 0xFF ? 0 : general.HeartRate,
+                StrokeRate = rowerData.Cadence == 0xFF ? 0 : rowerData.Cadence,
+                AveragePowerWatts = rowerData.InstantaneousPower == 0xFFFF ? 0 : rowerData.InstantaneousPower,
                 Timestamp = DateTimeOffset.UtcNow,
             };
         }

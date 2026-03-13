@@ -141,6 +141,12 @@ public static class CsafeCommandRegistry
                 Def("PM_GetRestTime", CsafeCommands.PmShort.PM_GetRestTime, [], [2], wrap),
             [GetKey(CsafeCommands.PmShort.PM_GetDisplayUnits, wrap)] =
                 Def("PM_GetDisplayUnits", CsafeCommands.PmShort.PM_GetDisplayUnits, [], [1], wrap),
+            [GetKey(CsafeCommands.PmShort.PM_GetWorkoutNumber, wrap)] =
+                Def("PM_GetWorkoutNumber", CsafeCommands.PmShort.PM_GetWorkoutNumber, [], [1], wrap),
+            [GetKey(CsafeCommands.PmShort.PM_GetErgMachineType, wrap)] =
+                Def("PM_GetErgMachineType", CsafeCommands.PmShort.PM_GetErgMachineType, [], [1], wrap),
+            [GetKey(CsafeCommands.PmShort.PM_GetAveragePace, wrap)] =
+                Def("PM_GetAveragePace", CsafeCommands.PmShort.PM_GetAveragePace, [], [2], wrap),
 
             // ── PM-specific long commands (wrapped in 0x1A) ──
             [GetKey(CsafeCommands.PmLong.PM_SetSplitDuration, wrap)] =
