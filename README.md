@@ -1,4 +1,4 @@
-# Concept2.PM
+# ErgNet
 
 A modern .NET library for communicating with Concept2 Performance Monitors (PM3/PM4/PM5) over USB, Bluetooth Low Energy, and ANT+.
 
@@ -16,8 +16,8 @@ A modern .NET library for communicating with Concept2 Performance Monitors (PM3/
 ## Quick Start
 
 ```csharp
-using Concept2;
-using Concept2.Transport;
+using ErgNet;
+using ErgNet.Transport;
 
 // USB connection
 await using var transport = new UsbTransport(myHidDevice);
@@ -66,7 +66,7 @@ await foreach (var snapshot in pm.StreamRowingDataAsync())
 ## Installation
 
 ```bash
-dotnet add package Concept2.PM
+dotnet add package ErgNet
 ```
 
 > **Note:** This library targets **.NET 10**. Make sure your project uses `net10.0` or later.
@@ -301,7 +301,7 @@ byte antDeviceType = PerformanceMonitorDiscovery.AntFitnessEquipmentDeviceType; 
 The library provides a complete CSAFE frame builder and parser for advanced usage:
 
 ```csharp
-using Concept2.Protocol.Csafe;
+using ErgNet.Protocol.Csafe;
 
 // Build a frame with multiple commands
 var commands = new[]

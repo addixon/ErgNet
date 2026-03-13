@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/ErgNet/ErgNet.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/ErgNet.Tests/ErgNet.Tests.csproj" />
+  </Folder>
+</Solution>
