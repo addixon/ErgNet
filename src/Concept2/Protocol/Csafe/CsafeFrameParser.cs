@@ -211,6 +211,9 @@ public static class CsafeFrameParser
             if (fieldSize < 0)
             {
                 // Negative value = ASCII string field; absolute value is length
+                if (fieldSize == int.MinValue)
+                    throw new InvalidOperationException("Invalid field size: int.MinValue cannot be handled.");
+
                 var strLen = Math.Abs(fieldSize);
                 var actualLen = Math.Min(strLen, end - pos);
                 for (var i = 0; i < actualLen; i++)
@@ -228,7 +231,7 @@ public static class CsafeFrameParser
             }
             else
             {
-                // Fixed-size numeric field (little-endian)
+                // Fixed-size numeric field (little-endian byte order per CSAFE specification)
                 var val = 0;
                 var actualLen = Math.Min(fieldSize, end - pos);
                 for (var i = 0; i < actualLen; i++)

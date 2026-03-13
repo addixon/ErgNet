@@ -18,8 +18,10 @@ namespace Concept2.Transport;
 public sealed class BluetoothTransport : IBluetoothTransport
 {
     private readonly IBleDevice _device;
+    private readonly object _connectionLock = new();
     private CancellationTokenSource? _responseCts;
     private Channel<byte[]>? _responseChannel;
+    private Task? _listenerTask;
     private bool _disposed;
 
     /// <summary>
@@ -42,18 +44,41 @@ public sealed class BluetoothTransport : IBluetoothTransport
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        await _device.ConnectAsync(cancellationToken).ConfigureAwait(false);
-
-        // Start listening for CSAFE responses on the PM Transmit characteristic.
-        _responseCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        _responseChannel = Channel.CreateBounded<byte[]>(new BoundedChannelOptions(16)
+        lock (_connectionLock)
         {
-            FullMode = BoundedChannelFullMode.DropOldest,
-            SingleReader = true,
-            SingleWriter = true,
-        });
+            if (_responseCts != null)
+            {
+                throw new InvalidOperationException("Transport is already connected or connecting.");
+            }
 
-        _ = ListenForResponsesAsync(_responseCts.Token);
+            // Start listening for CSAFE responses on the PM Transmit characteristic.
+            _responseCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            _responseChannel = Channel.CreateBounded<byte[]>(new BoundedChannelOptions(16)
+            {
+                FullMode = BoundedChannelFullMode.DropOldest,
+                SingleReader = true,
+                SingleWriter = true,
+            });
+        }
+
+        try
+        {
+            await _device.ConnectAsync(cancellationToken).ConfigureAwait(false);
+            _listenerTask = ListenForResponsesAsync(_responseCts.Token);
+        }
+        catch
+        {
+            // Clean up on connection failure
+            lock (_connectionLock)
+            {
+                _responseCts?.Cancel();
+                _responseCts?.Dispose();
+                _responseCts = null;
+                _responseChannel = null;
+                _listenerTask = null;
+            }
+            throw;
+        }
     }
 
     /// <inheritdoc />
@@ -138,6 +163,20 @@ public sealed class BluetoothTransport : IBluetoothTransport
         {
             _disposed = true;
             StopResponseListener();
+
+            // Wait for the listener task to complete
+            if (_listenerTask != null)
+            {
+                try
+                {
+                    await _listenerTask.ConfigureAwait(false);
+                }
+                catch (OperationCanceledException)
+                {
+                    // Expected when cancelling
+                }
+            }
+
             await _device.DisconnectAsync().ConfigureAwait(false);
             _device.Dispose();
         }

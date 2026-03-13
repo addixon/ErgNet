@@ -79,16 +79,41 @@ public static class BleDataParser
         var totalWorkDistance = ReadUInt24(data[11..]);
         var workoutDuration = ReadUInt24(data[15..]);
 
+        // Validate enum values before casting
+        var workoutType = Enum.IsDefined(typeof(WorkoutType), data[6])
+            ? (WorkoutType)data[6]
+            : throw new ArgumentException($"Invalid WorkoutType value: {data[6]}", nameof(data));
+
+        var intervalType = Enum.IsDefined(typeof(IntervalType), data[7])
+            ? (IntervalType)data[7]
+            : throw new ArgumentException($"Invalid IntervalType value: {data[7]}", nameof(data));
+
+        var workoutState = Enum.IsDefined(typeof(WorkoutState), data[8])
+            ? (WorkoutState)data[8]
+            : throw new ArgumentException($"Invalid WorkoutState value: {data[8]}", nameof(data));
+
+        var rowingState = Enum.IsDefined(typeof(RowingState), data[9])
+            ? (RowingState)data[9]
+            : throw new ArgumentException($"Invalid RowingState value: {data[9]}", nameof(data));
+
+        var strokeState = Enum.IsDefined(typeof(StrokeState), data[10])
+            ? (StrokeState)data[10]
+            : throw new ArgumentException($"Invalid StrokeState value: {data[10]}", nameof(data));
+
+        var durationType = Enum.IsDefined(typeof(DurationType), data[14])
+            ? (DurationType)data[14]
+            : throw new ArgumentException($"Invalid DurationType value: {data[14]}", nameof(data));
+
         return new GeneralStatusData(
             ElapsedTime: TimeSpan.FromMilliseconds(elapsedTimeCentiseconds * 10.0),
             DistanceMeters: distanceTenths / 10.0,
-            WorkoutType: (WorkoutType)data[6],
-            IntervalType: (IntervalType)data[7],
-            WorkoutState: (WorkoutState)data[8],
-            RowingState: (RowingState)data[9],
-            StrokeState: (StrokeState)data[10],
+            WorkoutType: workoutType,
+            IntervalType: intervalType,
+            WorkoutState: workoutState,
+            RowingState: rowingState,
+            StrokeState: strokeState,
             TotalWorkDistanceMeters: totalWorkDistance,
-            WorkoutDurationType: (DurationType)data[14],
+            WorkoutDurationType: durationType,
             WorkoutDuration: workoutDuration);
     }
 
@@ -108,12 +133,12 @@ public static class BleDataParser
         }
 
         var elapsedTimeCentiseconds = ReadUInt24(data);
-        var speedThousandths = (uint)(data[3] | (data[4] << 8));
-        var currentPaceCentiseconds = (uint)(data[7] | (data[8] << 8));
-        var averagePaceCentiseconds = (uint)(data[9] | (data[10] << 8));
-        var restDistance = (int)(data[11] | (data[12] << 8));
+        var speedThousandths = (uint)data[3] | ((uint)data[4] << 8);
+        var currentPaceCentiseconds = (uint)data[7] | ((uint)data[8] << 8);
+        var averagePaceCentiseconds = (uint)data[9] | ((uint)data[10] << 8);
+        var restDistance = (int)((uint)data[11] | ((uint)data[12] << 8));
         var restTimeCentiseconds = ReadUInt24(data[13..]);
-        var averagePower = (int)(data[16] | (data[17] << 8));
+        var averagePower = (int)((uint)data[16] | ((uint)data[17] << 8));
 
         return new AdditionalStatusData(
             ElapsedTime: TimeSpan.FromMilliseconds(elapsedTimeCentiseconds * 10.0),
@@ -132,6 +157,6 @@ public static class BleDataParser
     /// </summary>
     private static uint ReadUInt24(ReadOnlySpan<byte> data)
     {
-        return (uint)(data[0] | (data[1] << 8) | (data[2] << 16));
+        return (uint)data[0] | ((uint)data[1] << 8) | ((uint)data[2] << 16);
     }
 }

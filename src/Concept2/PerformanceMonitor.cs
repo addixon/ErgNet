@@ -143,12 +143,15 @@ public sealed class PerformanceMonitor : IPerformanceMonitor
             ? TimeSpan.FromSeconds(pace[0] * 60 + pace[1])
             : TimeSpan.Zero;
 
+        // Note: CSAFE protocol doesn't provide a separate average pace command,
+        // so we return current pace here. For BLE, average pace is correctly
+        // retrieved from the AdditionalStatus characteristic.
         return new RowingData
         {
             ElapsedTime = elapsed,
             DistanceMeters = distance,
             CurrentPace = currentPace,
-            AveragePace = currentPace,
+            AveragePace = currentPace, // CSAFE limitation - no separate average pace command
             StrokeRate = cadence is { Length: >= 2 } ? cadence[0] : 0,
             TotalCalories = calories is { Length: >= 1 } ? calories[0] : 0,
             AveragePowerWatts = power is { Length: >= 2 } ? power[0] : 0,
@@ -311,14 +314,17 @@ public sealed class PerformanceMonitor : IPerformanceMonitor
         TimeSpan? throttle,
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
+        // Capture the transport reference locally for thread safety
+        var bleTransport = _bleTransport ?? throw new InvalidOperationException("BLE transport is not available.");
+
         // Track the latest data from each characteristic so we can merge them.
         GeneralStatusData? latestGeneral = null;
         AdditionalStatusData? latestAdditional = null;
         DateTimeOffset lastYield = DateTimeOffset.MinValue;
 
-        var generalStream = _bleTransport!.SubscribeToCharacteristicAsync(
+        var generalStream = bleTransport.SubscribeToCharacteristicAsync(
             BleConstants.GeneralStatus, cancellationToken);
-        var additionalStream = _bleTransport.SubscribeToCharacteristicAsync(
+        var additionalStream = bleTransport.SubscribeToCharacteristicAsync(
             BleConstants.AdditionalStatus, cancellationToken);
 
         // Merge both streams using a channel.
@@ -461,7 +467,17 @@ public sealed class PerformanceMonitor : IPerformanceMonitor
 
         // Complete the channel when both pumps finish.
         _ = Task.WhenAll(pump1, pump2).ContinueWith(
-            _ => channel.Writer.TryComplete(),
+            t =>
+            {
+                if (t.IsFaulted && t.Exception != null)
+                {
+                    channel.Writer.TryComplete(t.Exception);
+                }
+                else
+                {
+                    channel.Writer.TryComplete();
+                }
+            },
             cancellationToken,
             TaskContinuationOptions.None,
             TaskScheduler.Default);
