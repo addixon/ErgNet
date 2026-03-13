@@ -1,0 +1,58 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    permissions:
+      packages: write
+      contents: read
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '10.0.x'
+        dotnet-quality: 'preview'
+
+    - name: Restore dependencies
+      run: dotnet restore
+
+    - name: Scan for security vulnerabilities
+      run: |
+        OUTPUT=$(dotnet list package --vulnerable --include-transitive 2>&1)
+        echo "$OUTPUT"
+        if echo "$OUTPUT" | grep -qi "has the following vulnerable packages"; then
+          echo "::error::Security vulnerabilities found in dependencies!"
+          exit 1
+        fi
+
+    - name: Check for outdated packages
+      continue-on-error: true
+      run: |
+        OUTPUT=$(dotnet list package --outdated 2>&1)
+        echo "$OUTPUT"
+        if echo "$OUTPUT" | grep -qi "has the following updates available"; then
+          echo "::warning::Some packages are outdated. Consider updating them."
+        fi
+
+    - name: Build
+      run: dotnet build --no-restore --configuration Release
+
+    - name: Test
+      run: dotnet test --no-build --configuration Release
+
+    - name: Pack NuGet package
+      run: dotnet pack --no-build --configuration Release --output ./nupkg
+
+    - name: Publish to GitHub Packages
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      run: dotnet nuget push ./nupkg/*.nupkg --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" --api-key ${{ secrets.GITHUB_TOKEN }} --skip-duplicate
