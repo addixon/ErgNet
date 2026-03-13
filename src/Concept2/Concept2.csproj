@@ -8,7 +8,6 @@
 
     <!-- NuGet Package -->
     <PackageId>Concept2.PM</PackageId>
-    <Version>0.1.0</Version>
     <Authors>addixon</Authors>
     <Description>A modern .NET library for communicating with Concept2 Performance Monitors (PM3/PM4/PM5) over USB, Bluetooth, and ANT+. Supports workout programming, real-time data streaming, and ad-hoc data retrieval using the CSAFE protocol and ANT+ FE-C device profile.</Description>
     <PackageTags>concept2;rowing;ergometer;pm5;csafe;bluetooth;ble;ant;ant-plus;fitness;erg</PackageTags>

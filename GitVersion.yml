@@ -1,0 +1,13 @@
+workflow: GitHubFlow/v1
+tag-prefix: v
+major-version-bump-message: "^(build|chore|ci|docs|feat|fix|perf|refactor|revert|style|test)(\\(.*\\))?!:|BREAKING CHANGE"
+minor-version-bump-message: "^feat(\\(.*\\))?:"
+patch-version-bump-message: "^(fix|perf)(\\(.*\\))?:"
+no-bump-message: "^(build|chore|ci|docs|refactor|revert|style|test)(\\(.*\\))?:"
+branches:
+  main:
+    regex: ^main$
+    is-main-branch: true
+    increment: Patch
+    mode: ContinuousDeployment
+    label: ''

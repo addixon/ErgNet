@@ -12,16 +12,36 @@ jobs:
 
     permissions:
       packages: write
-      contents: read
+      contents: write
 
     steps:
     - uses: actions/checkout@v6
+      with:
+        fetch-depth: 0
+        fetch-tags: true
 
     - name: Setup .NET
       uses: actions/setup-dotnet@v5
       with:
         dotnet-version: '10.0.x'
         dotnet-quality: 'preview'
+
+    - name: Install GitVersion
+      uses: gittools/actions/gitversion/setup@v4
+      with:
+        versionSpec: '6.x'
+
+    - name: Ensure baseline version tag
+      run: |
+        if [ -z "$(git tag -l 'v*')" ]; then
+          FIRST_COMMIT=$(git rev-list --max-parents=0 HEAD)
+          git tag v0.1.0 "$FIRST_COMMIT"
+          echo "Created baseline tag v0.1.0 on initial commit $FIRST_COMMIT"
+        fi
+
+    - name: Determine Version
+      id: gitversion
+      uses: gittools/actions/gitversion/execute@v4
 
     - name: Restore dependencies
       run: dotnet restore
@@ -45,14 +65,27 @@ jobs:
         fi
 
     - name: Build
-      run: dotnet build --no-restore --configuration Release
+      run: dotnet build --no-restore --configuration Release -p:Version=${{ steps.gitversion.outputs.semVer }}
 
     - name: Test
       run: dotnet test --no-build --configuration Release
 
     - name: Pack NuGet package
-      run: dotnet pack --no-build --configuration Release --output ./nupkg
+      run: dotnet pack --no-build --configuration Release --output ./nupkg -p:PackageVersion=${{ steps.gitversion.outputs.semVer }}
 
     - name: Publish to GitHub Packages
       if: github.event_name == 'push' && github.ref == 'refs/heads/main'
       run: dotnet nuget push ./nupkg/*.nupkg --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" --api-key ${{ secrets.GITHUB_TOKEN }} --skip-duplicate
+
+    - name: Create version tag
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      run: |
+        TAG="v${{ steps.gitversion.outputs.semVer }}"
+        if git rev-parse "$TAG" >/dev/null 2>&1; then
+          echo "Tag $TAG already exists, skipping."
+        else
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "$TAG" -m "Release $TAG"
+          git push origin "$TAG"
+        fi
