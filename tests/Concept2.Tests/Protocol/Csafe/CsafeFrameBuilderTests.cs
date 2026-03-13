@@ -17,7 +17,7 @@ public class CsafeFrameBuilderTests
     }
 
     [Fact]
-    public void Build_MultiplShortCommands_IncludesAll()
+    public void Build_MultipleShortCommands_IncludesAll()
     {
         var commands = new[]
         {
