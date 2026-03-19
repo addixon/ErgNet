@@ -8,7 +8,7 @@
 
     <!-- NuGet Package -->
     <PackageId>ErgNet</PackageId>
-    <Authors>addixon</Authors>
+    <Authors>ergSoft</Authors>
     <Description>A modern .NET library for communicating with Concept2 Performance Monitors (PM3/PM4/PM5) over USB, Bluetooth, and ANT+. Supports workout programming, real-time data streaming, and ad-hoc data retrieval using the CSAFE protocol and ANT+ FE-C device profile.</Description>
     <PackageTags>ergnet;concept2;rowing;ergometer;pm5;csafe;bluetooth;ble;ant;ant-plus;fitness;erg</PackageTags>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>

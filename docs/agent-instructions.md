@@ -194,11 +194,12 @@ Automatic semantic versioning via [GitVersion 6.x](https://gitversion.net/) with
 
 | Workflow          | Trigger                          | What it does                                                                     |
 |-------------------|----------------------------------|----------------------------------------------------------------------------------|
-| `ci.yml`          | Push to `main`/`release/*`, PRs  | Build → Test → Security scan → Pack. On push only: publish unlisted pre-release. |
-| `promote.yml`     | Manual `workflow_dispatch`       | Build → Test → Pack → Publish stable to NuGet.org + GitHub Packages → Git tag.   |
+| `ci.yml`          | Push to `main`/`release/*`, PRs  | Build → Test → Security scan → Pack. On push only: publish unlisted pre-release to NuGet.org. |
+| `promote.yml`     | Manual `workflow_dispatch`       | Build → Test → Pack → Publish to NuGet.org → Sign (repository) → Publish to GitHub Packages → Git tag. |
 
 - **Preproduction publish** runs only on `push` events (merged PRs), not on PR open/update.
-- **OIDC trusted publishing** via `NuGet/login@v1` — no API keys stored as secrets.
+- **OIDC trusted publishing** via `NuGet/login@v1` — no NuGet API keys stored as secrets.
+- **Repository-signed packages**: NuGet.org applies its own repository signature automatically. GitHub Packages receives a repository-signed package (`--package-owner ergSoft`) using `NUGET_SIGNING_CERT` / `NUGET_SIGNING_CERT_PASSWORD` secrets (production environment only).
 - **Dependabot** runs weekly for NuGet packages and GitHub Actions.
 
 ---
