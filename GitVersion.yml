@@ -11,3 +11,7 @@ branches:
     increment: Patch
     mode: ContinuousDeployment
     label: ''
+  pull-request:
+    regex: ^(pull|pull\-requests|pr)[/-]
+    label: alpha
+    mode: ContinuousDeployment
