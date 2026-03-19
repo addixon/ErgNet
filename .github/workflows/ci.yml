@@ -65,7 +65,7 @@ jobs:
         fi
 
     - name: Build
-      run: dotnet build --no-restore --configuration Release -p:Version=${{ steps.gitversion.outputs.semVer }}
+      run: dotnet build --no-restore --configuration Release -p:Version=${{ steps.gitversion.outputs.semVer }} -p:ContinuousIntegrationBuild=true
 
     - name: Test
       run: dotnet test --no-build --configuration Release
@@ -76,6 +76,10 @@ jobs:
     - name: Publish to GitHub Packages
       if: github.event_name == 'push' && github.ref == 'refs/heads/main'
       run: dotnet nuget push ./nupkg/*.nupkg --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" --api-key ${{ secrets.GITHUB_TOKEN }} --skip-duplicate
+
+    - name: Publish to NuGet.org
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      run: dotnet nuget push ./nupkg/*.nupkg --source "https://api.nuget.org/v3/index.json" --api-key ${{ secrets.NUGET_API_KEY }} --skip-duplicate
 
     - name: Create version tag
       if: github.event_name == 'push' && github.ref == 'refs/heads/main'
