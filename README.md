@@ -3,6 +3,7 @@
 A modern .NET library for communicating with Concept2 Performance Monitors (PM3/PM4/PM5) over USB, Bluetooth Low Energy, and ANT+.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![NuGet](https://img.shields.io/nuget/v/ErgNet.svg)](https://www.nuget.org/packages/ErgNet)
 
 ## Features
 
