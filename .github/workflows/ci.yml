@@ -114,7 +114,8 @@ jobs:
         SIGNING_CERT: ${{ secrets.NUGET_SIGNING_CERT }}
         SIGNING_CERT_PASSWORD: ${{ secrets.NUGET_SIGNING_CERT_PASSWORD }}
       run: |
-        CERT_PATH=$(mktemp /tmp/cert-XXXXXX.pfx)
+        CERT_PATH=$(mktemp "${RUNNER_TEMP}/cert-XXXXXX.pfx")
+        chmod 600 "$CERT_PATH"
         echo "$SIGNING_CERT" | base64 --decode > "$CERT_PATH"
         dotnet nuget sign ./nupkg/*.nupkg \
           --certificate-path "$CERT_PATH" \
