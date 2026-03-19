@@ -1,0 +1,80 @@
+name: Promote to Production
+
+on:
+  workflow_dispatch:
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    environment: production
+
+    permissions:
+      id-token: write
+      packages: write
+      contents: write
+
+    steps:
+    - uses: actions/checkout@v6
+      with:
+        fetch-depth: 0
+        fetch-tags: true
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v5
+      with:
+        dotnet-version: '10.0.x'
+        dotnet-quality: 'preview'
+
+    - name: Install GitVersion
+      uses: gittools/actions/gitversion/setup@v4
+      with:
+        versionSpec: '6.x'
+
+    - name: Ensure baseline version tag
+      run: |
+        if [ -z "$(git tag -l 'v*')" ]; then
+          FIRST_COMMIT=$(git rev-list --max-parents=0 HEAD)
+          git tag v0.1.0 "$FIRST_COMMIT"
+          echo "Created baseline tag v0.1.0 on initial commit $FIRST_COMMIT"
+        fi
+
+    - name: Determine Version
+      id: gitversion
+      uses: gittools/actions/gitversion/execute@v4
+      with:
+        overrideConfig: |
+          branches:
+            main:
+              label: ''
+            release:
+              label: ''
+
+    - name: Build
+      run: dotnet build --configuration Release -p:Version=${{ steps.gitversion.outputs.semVer }} -p:ContinuousIntegrationBuild=true
+
+    - name: Pack NuGet package
+      run: dotnet pack --no-build --configuration Release --output ./nupkg -p:PackageVersion=${{ steps.gitversion.outputs.semVer }}
+
+    - name: NuGet login
+      uses: NuGet/login@v1
+      id: login
+      with:
+        user: ${{ secrets.NUGET_USER }}
+
+    - name: Publish to NuGet.org
+      run: dotnet nuget push ./nupkg/*.nupkg --source "https://api.nuget.org/v3/index.json" --api-key "${{ steps.login.outputs.NUGET_API_KEY }}" --skip-duplicate
+
+    - name: Publish to GitHub Packages
+      run: dotnet nuget push ./nupkg/*.nupkg --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" --api-key ${{ secrets.GITHUB_TOKEN }} --skip-duplicate
+
+    - name: Create version tag
+      run: |
+        TAG="v${{ steps.gitversion.outputs.semVer }}"
+        if git rev-parse "$TAG" >/dev/null 2>&1; then
+          echo "Tag $TAG already exists, skipping."
+        else
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "$TAG" -m "Release $TAG"
+          git push origin "$TAG"
+        fi

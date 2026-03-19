@@ -2,9 +2,9 @@ name: CI/CD
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, 'release/*' ]
   pull_request:
-    branches: [ main ]
+    branches: [ main, 'release/*' ]
 
 jobs:
   build:
@@ -83,7 +83,6 @@ jobs:
 
   publish-preproduction:
     needs: build
-    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     environment: preproduction
 
@@ -112,55 +111,5 @@ jobs:
     - name: Publish to NuGet.org
       run: dotnet nuget push ./nupkg/*.nupkg --source "https://api.nuget.org/v3/index.json" --api-key "${{ steps.login.outputs.NUGET_API_KEY }}" --skip-duplicate
 
-  publish-production:
-    needs: build
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-    environment: production
-
-    permissions:
-      id-token: write
-      packages: write
-      contents: write
-
-    steps:
-    - uses: actions/checkout@v6
-      with:
-        fetch-depth: 0
-        fetch-tags: true
-
-    - name: Download NuGet package
-      uses: actions/download-artifact@v4
-      with:
-        name: nupkg
-        path: ./nupkg
-
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v5
-      with:
-        dotnet-version: '10.0.x'
-        dotnet-quality: 'preview'
-
-    - name: NuGet login
-      uses: NuGet/login@v1
-      id: login
-      with:
-        user: ${{ secrets.NUGET_USER }}
-
-    - name: Publish to NuGet.org
-      run: dotnet nuget push ./nupkg/*.nupkg --source "https://api.nuget.org/v3/index.json" --api-key "${{ steps.login.outputs.NUGET_API_KEY }}" --skip-duplicate
-
-    - name: Publish to GitHub Packages
-      run: dotnet nuget push ./nupkg/*.nupkg --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" --api-key ${{ secrets.GITHUB_TOKEN }} --skip-duplicate
-
-    - name: Create version tag
-      run: |
-        TAG="v${{ needs.build.outputs.semVer }}"
-        if git rev-parse "$TAG" >/dev/null 2>&1; then
-          echo "Tag $TAG already exists, skipping."
-        else
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag -a "$TAG" -m "Release $TAG"
-          git push origin "$TAG"
-        fi
+    - name: Unlist from NuGet.org
+      run: dotnet nuget delete ErgNet ${{ needs.build.outputs.semVer }} --source "https://api.nuget.org/v3/index.json" --api-key "${{ steps.login.outputs.NUGET_API_KEY }}" --non-interactive

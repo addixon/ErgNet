@@ -10,7 +10,14 @@ branches:
     is-main-branch: true
     increment: Patch
     mode: ContinuousDeployment
-    label: ''
+    label: alpha
+  release:
+    regex: ^releases?[/-]
+    mode: ContinuousDeployment
+    label: rc
+    increment: None
+    source-branches: [main]
+    is-release-branch: true
   pull-request:
     regex: ^(pull|pull\-requests|pr)[/-]
     label: alpha
