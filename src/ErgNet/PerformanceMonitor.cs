@@ -1,4 +1,5 @@
 using System.Runtime.CompilerServices;
+using System.IO;
 using System.Threading.Channels;
 using ErgNet.Models;
 using ErgNet.Protocol.Ant;
@@ -29,6 +30,11 @@ public sealed class PerformanceMonitor : IPerformanceMonitor
     private readonly IBluetoothTransport? _bleTransport;
     private readonly IAntTransport? _antTransport;
     private readonly SemaphoreSlim _transportLock = new(1, 1);
+    private static readonly TimeSpan[] RetryDelays =
+    [
+        TimeSpan.FromMilliseconds(50),
+        TimeSpan.FromMilliseconds(100),
+    ];
     private bool _disposed;
 
     /// <summary>
@@ -523,15 +529,28 @@ public sealed class PerformanceMonitor : IPerformanceMonitor
         await _transportLock.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            await _transport.SendAsync(frame, cancellationToken).ConfigureAwait(false);
-            byte[] responseBytes = await _transport.ReceiveAsync(cancellationToken).ConfigureAwait(false);
-            return CsafeFrameParser.Parse(responseBytes);
+            for (int attempt = 0; ; attempt++)
+            {
+                try
+                {
+                    await _transport.SendAsync(frame, cancellationToken).ConfigureAwait(false);
+                    byte[] responseBytes = await _transport.ReceiveAsync(cancellationToken).ConfigureAwait(false);
+                    return CsafeFrameParser.Parse(responseBytes);
+                }
+                catch (Exception ex) when (attempt < RetryDelays.Length && IsTransientTransportException(ex))
+                {
+                    await Task.Delay(RetryDelays[attempt], cancellationToken).ConfigureAwait(false);
+                }
+            }
         }
         finally
         {
             _transportLock.Release();
         }
     }
+
+    private static bool IsTransientTransportException(Exception ex)
+        => ex is TimeoutException or IOException;
 
     private static int[]? ExtractFields(CsafeResponse response, string commandName)
     {
