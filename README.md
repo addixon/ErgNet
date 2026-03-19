@@ -212,6 +212,8 @@ The `pollingInterval` parameter controls data rate:
 - **Bluetooth**: BLE notifications are pushed by the PM; this interval acts as a minimum throttle between yielded snapshots (default: unthrottled — every notification is yielded)
 - **ANT+**: ANT+ data page broadcasts are received from the PM; this interval acts as a minimum throttle between yielded snapshots (default: unthrottled — every broadcast is yielded)
 
+When using ANT+, only fields available in FE-C broadcasts are populated. Fields not present in ANT+ pages are returned with default values.
+
 #### Workout Programming
 
 ```csharp
@@ -334,7 +336,7 @@ if (response.Data.TryGetValue("GetTWork", out var twork))
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, coding conventions, and the release process.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, coding conventions, and the release process. For AI-assisted development guidance, see [docs/agent-instructions.md](docs/agent-instructions.md).
 
 ## License
 

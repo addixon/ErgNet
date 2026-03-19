@@ -114,6 +114,19 @@ public class PerformanceMonitorTests
     }
 
     [Fact]
+    public async Task GetRowingDataAsync_WithUsbTransport_RequestsDragFactorCommand()
+    {
+        var transport = new FakeUsbTransport(responseCount: 1);
+        await using var pm = new PerformanceMonitor(transport);
+        await pm.ConnectAsync();
+
+        _ = await pm.GetRowingDataAsync();
+
+        Assert.NotNull(transport.LastSentFrame);
+        Assert.Contains(CsafeCommands.PmShort.PM_GetDragFactor, transport.LastSentFrame);
+    }
+
+    [Fact]
     public async Task GoReadyAsync_WorksWithBothTransports()
     {
         var usbTransport = new FakeUsbTransport(responseCount: 1);
@@ -190,6 +203,32 @@ public class PerformanceMonitorTests
     }
 
     [Fact]
+    public async Task GetStatusAsync_ReceiveTimesOutOnce_RetriesAndSucceeds()
+    {
+        var transport = new TimeoutThenSuccessUsbTransport(failuresBeforeSuccess: 1);
+        await using var pm = new PerformanceMonitor(transport);
+        await pm.ConnectAsync();
+
+        var status = await pm.GetStatusAsync();
+
+        Assert.Equal(MachineState.Ready, status);
+        Assert.Equal(2, transport.SendCallCount);
+        Assert.Equal(2, transport.ReceiveCallCount);
+    }
+
+    [Fact]
+    public async Task GetStatusAsync_ReceiveAlwaysTimesOut_ThrowsAfterRetries()
+    {
+        var transport = new TimeoutThenSuccessUsbTransport(failuresBeforeSuccess: 3);
+        await using var pm = new PerformanceMonitor(transport);
+        await pm.ConnectAsync();
+
+        await Assert.ThrowsAsync<TimeoutException>(() => pm.GetStatusAsync());
+        Assert.Equal(3, transport.SendCallCount);
+        Assert.Equal(3, transport.ReceiveCallCount);
+    }
+
+    [Fact]
     public async Task AntTransport_SendAsync_ThrowsNotSupported()
     {
         var transport = new AntTransport(new FakeAntDevice());
@@ -224,6 +263,7 @@ public class PerformanceMonitorTests
 
         public bool IsConnected { get; private set; }
         public int SendCallCount { get; private set; }
+        public byte[]? LastSentFrame { get; private set; }
 
         public Task ConnectAsync(CancellationToken cancellationToken = default)
         {
@@ -240,6 +280,7 @@ public class PerformanceMonitorTests
         public Task SendAsync(ReadOnlyMemory<byte> data, CancellationToken cancellationToken = default)
         {
             SendCallCount++;
+            LastSentFrame = data.ToArray();
             return Task.CompletedTask;
         }
 
@@ -321,6 +362,58 @@ public class PerformanceMonitorTests
             // GeneralStatus characteristic: 18 bytes minimum
             // AdditionalStatus characteristic: 18 bytes minimum
             return new byte[20]; // All zeros — represents zero elapsed time, zero distance, etc.
+        }
+    }
+
+    /// <summary>
+    /// Fake USB transport that throws timeout exceptions on receive for a configurable number of attempts.
+    /// </summary>
+    private sealed class TimeoutThenSuccessUsbTransport : ITransport
+    {
+        private readonly int _failuresBeforeSuccess;
+
+        public TimeoutThenSuccessUsbTransport(int failuresBeforeSuccess)
+        {
+            _failuresBeforeSuccess = failuresBeforeSuccess;
+        }
+
+        public bool IsConnected { get; private set; }
+        public int SendCallCount { get; private set; }
+        public int ReceiveCallCount { get; private set; }
+
+        public Task ConnectAsync(CancellationToken cancellationToken = default)
+        {
+            IsConnected = true;
+            return Task.CompletedTask;
+        }
+
+        public Task DisconnectAsync(CancellationToken cancellationToken = default)
+        {
+            IsConnected = false;
+            return Task.CompletedTask;
+        }
+
+        public Task SendAsync(ReadOnlyMemory<byte> data, CancellationToken cancellationToken = default)
+        {
+            SendCallCount++;
+            return Task.CompletedTask;
+        }
+
+        public Task<byte[]> ReceiveAsync(CancellationToken cancellationToken = default)
+        {
+            ReceiveCallCount++;
+            if (ReceiveCallCount <= _failuresBeforeSuccess)
+            {
+                throw new TimeoutException("Transient timeout");
+            }
+
+            return Task.FromResult(new byte[] { 0xF1, 0x01, 0x01, 0xF2 });
+        }
+
+        public ValueTask DisposeAsync()
+        {
+            IsConnected = false;
+            return ValueTask.CompletedTask;
         }
     }
 

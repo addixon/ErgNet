@@ -1,4 +1,5 @@
 using System.Runtime.CompilerServices;
+using System.IO;
 using System.Threading.Channels;
 using ErgNet.Models;
 using ErgNet.Protocol.Ant;
@@ -29,6 +30,11 @@ public sealed class PerformanceMonitor : IPerformanceMonitor
     private readonly IBluetoothTransport? _bleTransport;
     private readonly IAntTransport? _antTransport;
     private readonly SemaphoreSlim _transportLock = new(1, 1);
+    private static readonly TimeSpan[] RetryDelays =
+    [
+        TimeSpan.FromMilliseconds(50),
+        TimeSpan.FromMilliseconds(100),
+    ];
     private bool _disposed;
 
     /// <summary>
@@ -133,6 +139,8 @@ public sealed class PerformanceMonitor : IPerformanceMonitor
                 wrapperCommand: CsafeCommands.Long.SetUserCfg1),
             new CsafeCommand(CsafeCommands.PmShort.PM_GetStrokeState,
                 wrapperCommand: CsafeCommands.Long.SetUserCfg1),
+            new CsafeCommand(CsafeCommands.PmShort.PM_GetDragFactor,
+                wrapperCommand: CsafeCommands.Long.SetUserCfg1),
         };
 
         var response = await SendAndReceiveAsync(commands, cancellationToken).ConfigureAwait(false);
@@ -146,6 +154,7 @@ public sealed class PerformanceMonitor : IPerformanceMonitor
         int[]? heartRate = ExtractFields(response, "GetHeartRateCurrent");
         int[]? workoutState = ExtractFields(response, "PM_GetWorkoutState");
         int[]? strokeState = ExtractFields(response, "PM_GetStrokeState");
+        int[]? drag = ExtractFields(response, "PM_GetDragFactor");
 
         var elapsed = twork is { Length: >= 3 }
             ? new TimeSpan(twork[0], twork[1], twork[2])
@@ -165,13 +174,14 @@ public sealed class PerformanceMonitor : IPerformanceMonitor
             ElapsedTime = elapsed,
             DistanceMeters = distance,
             CurrentPace = currentPace,
-            AveragePace = currentPace, // CSAFE limitation - no separate average pace command
+            AveragePace = currentPace, // PM CSAFE protocol limitation: no separate average pace command
             StrokeRate = cadence is { Length: >= 2 } ? cadence[0] : 0,
             TotalCalories = calories is { Length: >= 1 } ? calories[0] : 0,
             AveragePowerWatts = power is { Length: >= 2 } ? power[0] : 0,
             HeartRate = heartRate is { Length: >= 1 } ? heartRate[0] : 0,
             WorkoutState = workoutState is { Length: >= 1 } ? (WorkoutState)workoutState[0] : WorkoutState.WaitToBegin,
             StrokeState = strokeState is { Length: >= 1 } ? (StrokeState)strokeState[0] : StrokeState.WaitingForWheelToReachMinSpeed,
+            DragFactor = drag is { Length: >= 1 } ? drag[0] : 0,
             Timestamp = timestamp,
         };
     }
@@ -519,15 +529,28 @@ public sealed class PerformanceMonitor : IPerformanceMonitor
         await _transportLock.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            await _transport.SendAsync(frame, cancellationToken).ConfigureAwait(false);
-            byte[] responseBytes = await _transport.ReceiveAsync(cancellationToken).ConfigureAwait(false);
-            return CsafeFrameParser.Parse(responseBytes);
+            for (int attempt = 0; ; attempt++)
+            {
+                try
+                {
+                    await _transport.SendAsync(frame, cancellationToken).ConfigureAwait(false);
+                    byte[] responseBytes = await _transport.ReceiveAsync(cancellationToken).ConfigureAwait(false);
+                    return CsafeFrameParser.Parse(responseBytes);
+                }
+                catch (Exception ex) when (attempt < RetryDelays.Length && IsTransientTransportException(ex))
+                {
+                    await Task.Delay(RetryDelays[attempt], cancellationToken).ConfigureAwait(false);
+                }
+            }
         }
         finally
         {
             _transportLock.Release();
         }
     }
+
+    private static bool IsTransientTransportException(Exception ex)
+        => ex is TimeoutException or IOException;
 
     private static int[]? ExtractFields(CsafeResponse response, string commandName)
     {

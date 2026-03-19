@@ -85,7 +85,9 @@ public interface IPerformanceMonitor : IAsyncDisposable
     /// <returns>An async enumerable stream of <see cref="RowingData"/> snapshots.</returns>
     /// <remarks>
     /// This method works identically regardless of whether the underlying transport is USB,
-    /// Bluetooth, or ANT+. The same calling code can be used with any transport type.
+    /// Bluetooth, or ANT+. The same calling code can be used with any transport type. When
+    /// using ANT+, not all <see cref="RowingData"/> fields are available from FE-C data pages;
+    /// unavailable fields are reported as defaults.
     /// </remarks>
     IAsyncEnumerable<RowingData> StreamRowingDataAsync(
         TimeSpan? pollingInterval = null,
