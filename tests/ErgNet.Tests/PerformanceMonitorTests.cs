@@ -178,6 +178,18 @@ public class PerformanceMonitorTests
     }
 
     [Fact]
+    public async Task GetDeviceInfoAsync_ReturnsCorrectManufacturerName()
+    {
+        var transport = new FakeUsbTransport(responseCount: 1);
+        await using var pm = new PerformanceMonitor(transport);
+        await pm.ConnectAsync();
+
+        var info = await pm.GetDeviceInfoAsync();
+
+        Assert.Equal("Concept2", info.ManufacturerName);
+    }
+
+    [Fact]
     public async Task AntTransport_SendAsync_ThrowsNotSupported()
     {
         var transport = new AntTransport(new FakeAntDevice());

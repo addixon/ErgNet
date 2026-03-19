@@ -220,7 +220,7 @@ public enum MachineState : byte
 }
 
 /// <summary>
-/// Identifies the type of ErgNet Performance Monitor hardware.
+/// Identifies the type of Concept2 Performance Monitor hardware.
 /// </summary>
 public enum MonitorType : byte
 {
@@ -235,7 +235,7 @@ public enum MonitorType : byte
 }
 
 /// <summary>
-/// Identifies the type of ErgNet ergometer machine.
+/// Identifies the type of Concept2 ergometer machine.
 /// </summary>
 public enum ErgMachineType : byte
 {

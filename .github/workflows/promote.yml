@@ -49,8 +49,14 @@ jobs:
             release:
               label: ''
 
+    - name: Restore dependencies
+      run: dotnet restore
+
     - name: Build
-      run: dotnet build --configuration Release -p:Version=${{ steps.gitversion.outputs.semVer }} -p:ContinuousIntegrationBuild=true
+      run: dotnet build --no-restore --configuration Release -p:Version=${{ steps.gitversion.outputs.semVer }} -p:ContinuousIntegrationBuild=true
+
+    - name: Test
+      run: dotnet test --no-build --configuration Release
 
     - name: Pack NuGet package
       run: dotnet pack --no-build --configuration Release --output ./nupkg -p:PackageVersion=${{ steps.gitversion.outputs.semVer }}

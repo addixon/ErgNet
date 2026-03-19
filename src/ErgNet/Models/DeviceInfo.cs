@@ -1,7 +1,7 @@
 namespace ErgNet.Models;
 
 /// <summary>
-/// Represents device information retrieved from the ErgNet performance monitor.
+/// Represents device information retrieved from the Concept2 performance monitor.
 /// </summary>
 /// <param name="SerialNumber">The serial number of the device.</param>
 /// <param name="FirmwareVersion">The firmware version installed on the device.</param>

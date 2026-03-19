@@ -4,7 +4,7 @@ using ErgNet.Protocol.Csafe;
 namespace ErgNet;
 
 /// <summary>
-/// Interface for communicating with a ErgNet Performance Monitor (PM3/PM4/PM5).
+/// Interface for communicating with a Concept2 Performance Monitor (PM3/PM4/PM5).
 /// Provides methods for workout programming, data retrieval, and real-time data streaming.
 /// </summary>
 /// <remarks>

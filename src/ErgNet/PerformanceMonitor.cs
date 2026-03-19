@@ -10,7 +10,7 @@ namespace ErgNet;
 
 /// <summary>
 /// Main implementation of <see cref="IPerformanceMonitor"/> for communicating with
-/// ErgNet Performance Monitors (PM3/PM4/PM5).
+/// Concept2 Performance Monitors (PM3/PM4/PM5).
 /// </summary>
 /// <remarks>
 /// Construct with any <see cref="ITransport"/>. If the transport also implements
@@ -94,7 +94,7 @@ public sealed class PerformanceMonitor : IPerformanceMonitor
             SerialNumber: serial,
             FirmwareVersion: firmware,
             HardwareVersion: hardware,
-            ManufacturerName: "ErgNet",
+            ManufacturerName: "Concept2",
             ModelNumber: "PM5");
     }
 
