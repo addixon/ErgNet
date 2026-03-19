@@ -109,21 +109,6 @@ jobs:
       with:
         user: ${{ secrets.NUGET_USER }}
 
-    - name: Sign NuGet package
-      env:
-        SIGNING_CERT: ${{ secrets.NUGET_SIGNING_CERT }}
-        SIGNING_CERT_PASSWORD: ${{ secrets.NUGET_SIGNING_CERT_PASSWORD }}
-      run: |
-        CERT_PATH=$(mktemp "${RUNNER_TEMP}/cert-XXXXXX.pfx")
-        chmod 600 "$CERT_PATH"
-        echo "$SIGNING_CERT" | base64 --decode > "$CERT_PATH"
-        dotnet nuget sign ./nupkg/*.nupkg \
-          --certificate-path "$CERT_PATH" \
-          --certificate-password "$SIGNING_CERT_PASSWORD" \
-          --timestamper http://timestamp.digicert.com \
-          --overwrite
-        rm -f "$CERT_PATH"
-
     - name: Publish to NuGet.org
       run: dotnet nuget push ./nupkg/*.nupkg --source "https://api.nuget.org/v3/index.json" --api-key "${{ steps.login.outputs.NUGET_API_KEY }}" --skip-duplicate
 

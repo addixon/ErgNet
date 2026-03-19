@@ -61,21 +61,6 @@ jobs:
     - name: Pack NuGet package
       run: dotnet pack --no-build --configuration Release --output ./nupkg -p:PackageVersion=${{ steps.gitversion.outputs.semVer }}
 
-    - name: Sign NuGet package
-      env:
-        SIGNING_CERT: ${{ secrets.NUGET_SIGNING_CERT }}
-        SIGNING_CERT_PASSWORD: ${{ secrets.NUGET_SIGNING_CERT_PASSWORD }}
-      run: |
-        CERT_PATH=$(mktemp "${RUNNER_TEMP}/cert-XXXXXX.pfx")
-        chmod 600 "$CERT_PATH"
-        echo "$SIGNING_CERT" | base64 --decode > "$CERT_PATH"
-        dotnet nuget sign ./nupkg/*.nupkg \
-          --certificate-path "$CERT_PATH" \
-          --certificate-password "$SIGNING_CERT_PASSWORD" \
-          --timestamper http://timestamp.digicert.com \
-          --overwrite
-        rm -f "$CERT_PATH"
-
     - name: NuGet login
       uses: NuGet/login@v1
       id: login
@@ -84,6 +69,24 @@ jobs:
 
     - name: Publish to NuGet.org
       run: dotnet nuget push ./nupkg/*.nupkg --source "https://api.nuget.org/v3/index.json" --api-key "${{ steps.login.outputs.NUGET_API_KEY }}" --skip-duplicate
+
+    - name: Sign NuGet package (repository signature)
+      env:
+        SIGNING_CERT: ${{ secrets.NUGET_SIGNING_CERT }}
+        SIGNING_CERT_PASSWORD: ${{ secrets.NUGET_SIGNING_CERT_PASSWORD }}
+      run: |
+        CERT_PATH=$(mktemp "${RUNNER_TEMP}/cert-XXXXXX.pfx")
+        chmod 600 "$CERT_PATH"
+        echo "$SIGNING_CERT" | base64 --decode > "$CERT_PATH"
+        dotnet nuget sign ./nupkg/*.nupkg \
+          --type repository \
+          --repository-url "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" \
+          --package-owner ergSoft \
+          --certificate-path "$CERT_PATH" \
+          --certificate-password "$SIGNING_CERT_PASSWORD" \
+          --timestamper http://timestamp.digicert.com \
+          --overwrite
+        rm -f "$CERT_PATH"
 
     - name: Publish to GitHub Packages
       run: dotnet nuget push ./nupkg/*.nupkg --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" --api-key ${{ secrets.GITHUB_TOKEN }} --skip-duplicate

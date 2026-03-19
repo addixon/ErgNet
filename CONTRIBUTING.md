@@ -162,31 +162,31 @@ Semantic versioning is handled automatically by [GitVersion](https://gitversion.
 
 | Workflow | Trigger | Actions |
 |----------|---------|---------|
-| **CI/CD** (`ci.yml`) | Push to `main`/`release/*`, PRs | Build → Test → Security scan → Pack. On push (merge) only: sign → publish unlisted pre-release. |
-| **Promote** (`promote.yml`) | Manual dispatch | Build → Test → Pack → Sign → Publish to NuGet.org + GitHub Packages → Tag |
+| **CI/CD** (`ci.yml`) | Push to `main`/`release/*`, PRs | Build → Test → Security scan → Pack. On push (merge) only: publish unlisted pre-release to NuGet.org. |
+| **Promote** (`promote.yml`) | Manual dispatch | Build → Test → Pack → Publish to NuGet.org → Sign (repository) → Publish to GitHub Packages → Tag |
 
-Both workflows use **OIDC trusted publishing** via `NuGet/login@v1` — no NuGet API keys are stored as secrets. Packages are **author-signed** using a code signing certificate before publishing — see [NuGet Package Signing](#nuget-package-signing) for setup.
+Both workflows use **OIDC trusted publishing** via `NuGet/login@v1` — no NuGet API keys are stored as secrets. NuGet.org applies its own **repository signature** to all packages automatically. GitHub Packages receives a **repository-signed** package (owner: `ergSoft`) — see [NuGet Package Signing](#nuget-package-signing) for setup.
 
 ## NuGet Package Signing
 
-Published packages are signed with an author certificate so they appear as **author signed** on NuGet.org. NuGet.org additionally applies a **repository counter-signature** automatically.
+All packages published to NuGet.org receive a **repository signature** applied automatically by NuGet.org. For GitHub Packages, the promote workflow applies a **repository signature** with `ergSoft` as the package owner before publishing.
 
 ### Required GitHub Secrets
 
-Configure the following secrets in **both** the `preproduction` and `production` GitHub environments:
+Configure the following secrets in the `production` GitHub environment:
 
 | Secret | Description |
 |--------|-------------|
-| `NUGET_SIGNING_CERT` | Base64-encoded `.pfx` (PKCS #12) code signing certificate. Generate with `base64 -w0 cert.pfx` (Linux) or `base64 -i cert.pfx` (macOS). |
+| `NUGET_SIGNING_CERT` | Base64-encoded `.pfx` (PKCS #12) code signing certificate issued to `ergSoft`. Generate with `base64 -w0 cert.pfx` (Linux) or `base64 -i cert.pfx` (macOS). |
 | `NUGET_SIGNING_CERT_PASSWORD` | Password for the `.pfx` file. |
 
 ### NuGet.org Certificate Registration
 
-1. Export the **public key** from your signing certificate as a `.cer` (DER-encoded) file.
+1. Export the **public key** from the signing certificate as a `.cer` (DER-encoded) file.
 2. On [NuGet.org → Account Settings → Certificates](https://www.nuget.org/account/certificates), upload the `.cer` file.
-3. On the [ErgNet package page → Manage → Required signers](https://www.nuget.org/packages/ErgNet/Manage), set yourself as a required signer using the uploaded certificate.
+3. On the [ErgNet package page → Manage](https://www.nuget.org/packages/ErgNet/Manage), verify the package owner is set to `ergSoft`.
 
-Once configured, NuGet.org will reject any package not signed with the registered certificate. Each published package will carry both an **author signature** (yours) and a **repository signature** (NuGet.org's).
+NuGet.org applies a repository signature to every package. GitHub Packages receives a repository-signed package with `ergSoft` recorded as the package owner.
 
 ## License
 
