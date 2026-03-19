@@ -46,8 +46,10 @@ jobs:
           branches:
             main:
               label: ''
+              mode: ContinuousDeployment
             release:
               label: ''
+              mode: ContinuousDeployment
 
     - name: Restore dependencies
       run: dotnet restore

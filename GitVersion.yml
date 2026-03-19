@@ -8,12 +8,12 @@ branches:
   main:
     regex: ^main$
     is-main-branch: true
-    increment: Patch
-    mode: ContinuousDeployment
+    increment: Minor
+    mode: ContinuousDelivery
     label: alpha
   release:
     regex: ^releases?[/-]
-    mode: ContinuousDeployment
+    mode: ContinuousDelivery
     label: rc
     increment: None
     source-branches: [main]
@@ -21,4 +21,4 @@ branches:
   pull-request:
     regex: ^(pull|pull\-requests|pr)[/-]
     label: alpha
-    mode: ContinuousDeployment
+    mode: ContinuousDelivery
