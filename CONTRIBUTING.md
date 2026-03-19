@@ -171,22 +171,98 @@ Both workflows use **OIDC trusted publishing** via `NuGet/login@v1` — no NuGet
 
 All packages published to NuGet.org receive a **repository signature** applied automatically by NuGet.org. For GitHub Packages, the promote workflow applies a **repository signature** with `ergSoft` as the package owner before publishing.
 
-### Required GitHub Secrets
+### 1. Generate a Code Signing Certificate
 
-Configure the following secrets in the `production` GitHub environment:
+Create a self-signed code signing certificate using OpenSSL. The certificate must include the **Code Signing** extended key usage (`1.3.6.1.5.5.7.3.3`).
 
-| Secret | Description |
-|--------|-------------|
-| `NUGET_SIGNING_CERT` | Base64-encoded `.pfx` (PKCS #12) code signing certificate issued to `ergSoft`. Generate with `base64 -w0 cert.pfx` (Linux) or `base64 -i cert.pfx | tr -d '\n'` (macOS). |
-| `NUGET_SIGNING_CERT_PASSWORD` | Password for the `.pfx` file. |
+First, create a configuration file:
 
-### NuGet.org Certificate Registration
+```bash
+cat > /tmp/ergsoft-codesign.cnf << 'EOF'
+[req]
+distinguished_name = req_dn
+x509_extensions    = v3_cs
+prompt             = no
 
-1. Export the **public key** from the signing certificate as a `.cer` (DER-encoded) file.
-2. On [NuGet.org → Account Settings → Certificates](https://www.nuget.org/account/certificates), upload the `.cer` file.
-3. On the [ErgNet package page → Manage](https://www.nuget.org/packages/ErgNet/Manage), verify the package owner is set to `ergSoft`.
+[req_dn]
+O  = ergSoft
+CN = ergSoft Code Signing
 
-NuGet.org applies a repository signature to every package. GitHub Packages receives a repository-signed package with `ergSoft` recorded as the package owner.
+[v3_cs]
+keyUsage         = critical, digitalSignature
+extendedKeyUsage = critical, codeSigning
+basicConstraints = critical, CA:FALSE
+subjectKeyIdentifier = hash
+EOF
+```
+
+Then generate the certificate and private key, and export to a `.pfx` file:
+
+```bash
+# Generate a 4096-bit RSA certificate valid for 3 years
+openssl req -x509 -newkey rsa:4096 -sha256 -days 1095 \
+  -keyout /tmp/ergsoft-codesign.key \
+  -out /tmp/ergsoft-codesign.crt \
+  -config /tmp/ergsoft-codesign.cnf \
+  -passout pass:YOUR_PASSWORD
+
+# Bundle into a PKCS #12 (.pfx) file
+openssl pkcs12 -export \
+  -in /tmp/ergsoft-codesign.crt \
+  -inkey /tmp/ergsoft-codesign.key \
+  -out /tmp/ergsoft-codesign.pfx \
+  -passin pass:YOUR_PASSWORD \
+  -passout pass:YOUR_PASSWORD
+```
+
+Replace `YOUR_PASSWORD` with a strong password — this becomes the `NUGET_SIGNING_CERT_PASSWORD` secret.
+
+### 2. Export the Public Key
+
+Export the public certificate as a DER-encoded `.cer` file for registration with NuGet.org:
+
+```bash
+openssl x509 -in /tmp/ergsoft-codesign.crt -outform DER -out /tmp/ergsoft-codesign.cer
+```
+
+### 3. Configure GitHub Secrets
+
+Base64-encode the `.pfx` file and add it as a secret in the `production` GitHub environment:
+
+```bash
+# Linux
+base64 -w0 /tmp/ergsoft-codesign.pfx
+
+# macOS
+base64 -i /tmp/ergsoft-codesign.pfx | tr -d '\n'
+```
+
+Navigate to **Settings → Environments → production → Environment secrets** and add:
+
+| Secret | Value |
+|--------|-------|
+| `NUGET_SIGNING_CERT` | The base64-encoded `.pfx` output from above |
+| `NUGET_SIGNING_CERT_PASSWORD` | The password used when creating the `.pfx` file |
+
+### 4. Register the Certificate on NuGet.org
+
+1. Go to [NuGet.org → Account Settings → Certificates](https://www.nuget.org/account/certificates) and upload the `.cer` file exported in step 2.
+2. On the [ErgNet package page → Manage](https://www.nuget.org/packages/ErgNet/Manage), verify the package owner is set to `ergSoft`.
+
+### 5. Clean Up
+
+Remove the private key material from your local machine:
+
+```bash
+rm /tmp/ergsoft-codesign.key /tmp/ergsoft-codesign.pfx /tmp/ergsoft-codesign.cnf
+```
+
+Keep the `.crt` and `.cer` files in a secure location for future reference (e.g., certificate renewal).
+
+### How It Works
+
+- **NuGet.org** applies its own repository signature to every package automatically — no additional signing is needed for packages published there.
+- **GitHub Packages** receives a repository-signed package. The promote workflow decodes `NUGET_SIGNING_CERT`, signs the `.nupkg` with `--type repository --package-owner ergSoft`, and pushes the signed package.
 
 ## License
 
