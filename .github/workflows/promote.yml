@@ -61,6 +61,20 @@ jobs:
     - name: Pack NuGet package
       run: dotnet pack --no-build --configuration Release --output ./nupkg -p:PackageVersion=${{ steps.gitversion.outputs.semVer }}
 
+    - name: Sign NuGet package
+      env:
+        SIGNING_CERT: ${{ secrets.NUGET_SIGNING_CERT }}
+        SIGNING_CERT_PASSWORD: ${{ secrets.NUGET_SIGNING_CERT_PASSWORD }}
+      run: |
+        CERT_PATH=$(mktemp /tmp/cert-XXXXXX.pfx)
+        echo "$SIGNING_CERT" | base64 --decode > "$CERT_PATH"
+        dotnet nuget sign ./nupkg/*.nupkg \
+          --certificate-path "$CERT_PATH" \
+          --certificate-password "$SIGNING_CERT_PASSWORD" \
+          --timestamper http://timestamp.digicert.com \
+          --overwrite
+        rm -f "$CERT_PATH"
+
     - name: NuGet login
       uses: NuGet/login@v1
       id: login
